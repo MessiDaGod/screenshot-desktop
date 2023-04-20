@@ -2,6 +2,12 @@ const test = require('ava')
 const { path: tempPathSync } = require('temp')
 const { existsSync, unlinkSync } = require('fs')
 const screenshot = require('./')
+const { promisify } = require('util')
+const path = require('path');
+const rimraf = require('rimraf');
+const darwinSnapshot = require('./lib/darwin');
+const fs = require('fs');
+const os = require('os');
 
 test.before(async () => {
   return screenshot.listDisplays().then(displays => {
@@ -72,3 +78,35 @@ test('parse display output', t => {
     checkDisplays(t, disps)
   }
 })
+
+test('darwinSnapshot', async t => {
+  // Set up a temporary directory for output
+  const tempDir = await promisify(fs.mkdtemp)(path.join(os.tmpdir(), 'screenshot-desktop-test-'));
+
+  const outputPath = path.join(tempDir, 'test.jpg');
+  console.log(outputPath);
+
+  // Set up options
+  const options = {
+    filename: outputPath,
+    coordinates: {
+      x: 50,
+      y: 135,
+      width: 1335,
+      height: 760,
+    },
+  };
+
+  try {
+    // Take the screenshot
+    await darwinSnapshot(options);
+
+    // Check that the output file exists and is not empty
+    const stats = await promisify(fs.stat)(outputPath);
+    t.truthy(stats.isFile());
+    t.truthy(stats.size > 0);
+  } finally {
+    // Clean up the temporary directory
+    await promisify(rimraf)(tempDir);
+  }
+});
